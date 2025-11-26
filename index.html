@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Level 4: Deep Data Ocean</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0b1120; } /* 更深邃的蓝黑背景 */
+        canvas { display: block; }
+        #info {
+            position: absolute; top: 10px; width: 100%;
+            text-align: center; color: #38bdf8; font-family: monospace; z-index: 100;
+            pointer-events: none;
+            text-shadow: 0 0 10px #0ea5e9;
+            font-size: 16px; font-weight: bold;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        LEVEL 4: DEEP DATA OCEAN<br/>
+        (Atmospheric Immersion Update)
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. 参数配置 ---
+        const GRID_SIZE = 80;
+        const CELL_SIZE = 2.5;
+        const GAP = 0.15; // 缝隙稍微加大，增强网格科技感
+        const BASE_LEVEL = 2;
+        const WAVE_AMPLITUDE = 1.2; 
+        const WAVE_SPEED = 1.8;
+        const DENSITY_X = 0.35;
+        const DENSITY_Z = 0.25;
+
+        const PALETTE = [
+            new THREE.Color('#e0f2fe'), // 极浅蓝 (浪花)
+            new THREE.Color('#bae6fd'), 
+            new THREE.Color('#7dd3fc'), 
+            new THREE.Color('#38bdf8'), 
+            new THREE.Color('#0ea5e9'), 
+            new THREE.Color('#0284c7'), 
+            new THREE.Color('#0369a1'), 
+            new THREE.Color('#0c4a6e'), // 深渊色
+        ];
+
+        // --- 2. 场景基础 ---
+        const scene = new THREE.Scene();
+        const bgColor = new THREE.Color(0x0b1120);
+        scene.background = bgColor;
+        
+        // 雾气策略：使用线性雾，让远处巨塔若隐若现
+        scene.fog = new THREE.Fog(bgColor, 30, 110); 
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true }); // 开启对数深度缓冲，防止远处闪烁
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        document.body.appendChild(VRButton.createButton(renderer));
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 5, 0);
+        controls.maxPolarAngle = Math.PI / 2 - 0.1;
+
+        // --- 3. 灯光系统 (氛围感) ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        // 主光源：来自远处的“人造月亮”
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        sunLight.position.set(-60, 30, -60);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(2048, 2048);
+        sunLight.shadow.camera.left = -100; sunLight.shadow.camera.right = 100;
+        sunLight.shadow.camera.top = 100; sunLight.shadow.camera.bottom = -100;
+        scene.add(sunLight);
+
+        // 补光：平台附近的蓝光，照亮玩家
+        const pointLight = new THREE.PointLight(0x00ffff, 2, 20);
+        pointLight.position.set(0, 10, 0);
+        scene.add(pointLight);
+
+
+        // --- 4. 环境要素 I：远处的巨塔 (Monoliths) ---
+        // 这些巨塔给场景提供了“尺度感”，让你感觉海面无限宽广
+        const monolithGeo = new THREE.BoxGeometry(10, 100, 10);
+        const monolithMat = new THREE.MeshStandardMaterial({
+            color: 0x1e293b, // 深蓝灰
+            roughness: 0.1,  // 光滑反射
+            metalness: 0.8,
+            emissive: 0x0f172a,
+            emissiveIntensity: 0.5
+        });
+        const towersGroup = new THREE.Group();
+        scene.add(towersGroup);
+
+        for(let i=0; i<8; i++) {
+            const tower = new THREE.Mesh(monolithGeo, monolithMat);
+            // 随机分布在雾气深处
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 70 + Math.random() * 40; // 距离中心 70~110
+            tower.position.set(
+                Math.cos(angle) * radius,
+                -20, // 沉在水底，露出上半部分
+                Math.sin(angle) * radius
+            );
+            tower.rotation.y = Math.random() * Math.PI;
+            // 塔身上的发光带
+            const stripeGeo = new THREE.BoxGeometry(10.2, 0.5, 10.2);
+            const stripeMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9 });
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.y = 10 + Math.random() * 30;
+            tower.add(stripe);
+            
+            towersGroup.add(tower);
+        }
+
+        // --- 5. 环境要素 II：天空之源 (Source Halo) ---
+        // 在主光源方向放置一个巨大的光环
+        const sunGroup = new THREE.Group();
+        sunGroup.position.copy(sunLight.position).normalize().multiplyScalar(150); // 放在极远处
+        sunGroup.lookAt(0, 0, 0);
+        scene.add(sunGroup);
+
+        const haloGeo = new THREE.RingGeometry(20, 22, 64);
+        const haloMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        sunGroup.add(halo);
+
+        const coreSunGeo = new THREE.CircleGeometry(15, 64);
+        const coreSunMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.4 });
+        const coreSun = new THREE.Mesh(coreSunGeo, coreSunMat);
+        coreSun.position.z = -1; // 放在环后面
+        sunGroup.add(coreSun);
+
+
+        // --- 6. 核心逻辑：数据海 ---
+        const voxelGeo = new THREE.BoxGeometry(1, 1, 1);
+        voxelGeo.translate(0, 0.5, 0);
+        const voxelMat = new THREE.MeshStandardMaterial({ roughness: 0.1, metalness: 0.3 });
+        
+        const totalCount = GRID_SIZE * GRID_SIZE;
+        const oceanMesh = new THREE.InstancedMesh(voxelGeo, voxelMat, totalCount);
+        oceanMesh.castShadow = true;
+        oceanMesh.receiveShadow = true;
+        scene.add(oceanMesh);
+
+        const blockData = []; 
+        const dummy = new THREE.Object3D(); 
+        const offset = (GRID_SIZE * (CELL_SIZE + GAP)) / 2;
+
+        let idx = 0;
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const x = (i * (CELL_SIZE + GAP)) - offset;
+                const z = (j * (CELL_SIZE + GAP)) - offset;
+                const distance = Math.sqrt(x * x + z * z);
+                
+                const isCenter = distance < 8; // 稍微扩大中心平静区
+                
+                // 颜色逻辑：远处深，近处浅
+                let colorIdx = Math.floor(Math.random() * PALETTE.length);
+                if(distance > 50) colorIdx = Math.min(colorIdx + 2, PALETTE.length - 1);
+                
+                const color = PALETTE[colorIdx];
+                oceanMesh.setColorAt(idx, color);
+                
+                // 复杂相位
+                const phase = x * DENSITY_X + z * DENSITY_Z;
+
+                blockData.push({ index: idx, x, z, isCenter, phase });
+
+                dummy.position.set(x, 0, z);
+                dummy.scale.set(CELL_SIZE, BASE_LEVEL, CELL_SIZE);
+                dummy.updateMatrix();
+                oceanMesh.setMatrixAt(idx, dummy.matrix);
+                idx++;
+            }
+        }
+        oceanMesh.instanceMatrix.needsUpdate = true;
+
+
+        // --- 7. 环境要素 III：上升的数据粒子 (Rising Bubbles) ---
+        const particleCount = 2000;
+        const particleGeo = new THREE.BufferGeometry();
+        const pPos = new Float32Array(particleCount * 3);
+        const pSpeed = new Float32Array(particleCount);
+        const pOffset = new Float32Array(particleCount);
+
+        for(let i=0; i<particleCount; i++) {
+            pPos[i*3] = (Math.random() - 0.5) * 150;
+            pPos[i*3+1] = Math.random() * 40;
+            pPos[i*3+2] = (Math.random() - 0.5) * 150;
+            pSpeed[i] = 0.05 + Math.random() * 0.1; // 上升速度
+            pOffset[i] = Math.random() * Math.PI * 2; // 摇摆相位
+        }
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const particleMat = new THREE.PointsMaterial({
+            color: 0x7dd3fc,
+            size: 0.25,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        scene.add(particles);
+
+
+        // --- 8. 玩家平台与全息UI ---
+        const platformGroup = new THREE.Group();
+        platformGroup.position.set(0, BASE_LEVEL + 2, 0); 
+        scene.add(platformGroup);
+
+        // 玻璃底座
+        const platGeo = new THREE.CylinderGeometry(6, 6, 0.5, 6); 
+        const platMat = new THREE.MeshPhysicalMaterial({ 
+            color: 0xffffff, metalness: 0.1, roughness: 0.05, transmission: 0.8, transparent: true, opacity: 0.5
+        });
+        const platform = new THREE.Mesh(platGeo, platMat);
+        platformGroup.add(platform);
+        platformGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(platGeo), new THREE.LineBasicMaterial({ color: 0x38bdf8 })));
+
+        // 向下的探测光束
+        const beamGeo = new THREE.CylinderGeometry(2, 0.5, 20, 8);
+        const beamMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = -10;
+        platformGroup.add(beam);
+
+        // 全息环绕UI
+        const hudGroup = new THREE.Group();
+        platformGroup.add(hudGroup);
+        
+        // 两个旋转的UI环
+        const hudRing1 = new THREE.Mesh(new THREE.TorusGeometry(7, 0.05, 16, 100), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.5 }));
+        const hudRing2 = new THREE.Mesh(new THREE.TorusGeometry(7.5, 0.05, 16, 100), new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.3 }));
+        hudRing1.rotation.x = Math.PI / 2;
+        hudRing2.rotation.x = Math.PI / 2;
+        hudGroup.add(hudRing1, hudRing2);
+
+        // 悬浮的UI面板 (简单的面片)
+        const panelGeo = new THREE.PlaneGeometry(2, 1);
+        const panelMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9, side: THREE.DoubleSide, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending });
+        for(let i=0; i<3; i++) {
+            const panel = new THREE.Mesh(panelGeo, panelMat);
+            const angle = (i / 3) * Math.PI * 2;
+            panel.position.set(Math.cos(angle) * 5, 1.5, Math.sin(angle) * 5);
+            panel.lookAt(0, 1.5, 0);
+            
+            // 边框
+            const border = new THREE.LineSegments(new THREE.EdgesGeometry(panelGeo), new THREE.LineBasicMaterial({ color: 0x7dd3fc }));
+            panel.add(border);
+            hudGroup.add(panel);
+        }
+
+
+        // --- 9. 人物 ---
+        const player = new THREE.Group();
+        const pMat = new THREE.MeshStandardMaterial({color: 0x1e293b, roughness:0.4});
+        const visMat = new THREE.MeshBasicMaterial({color: 0x38bdf8}); 
+        player.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 1.6, 8), pMat));
+        player.add(new THREE.Mesh(new THREE.SphereGeometry(0.25), pMat).translateY(0.9));
+        player.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.15), visMat).translateY(0.9).translateZ(0.15));
+        platformGroup.add(player);
+
+
+        // --- 10. 动画循环 ---
+        const clock = new THREE.Clock();
+
+        function render() {
+            const time = clock.getElapsedTime();
+            controls.update();
+
+            // 1. 海面波动
+            for (let i = 0; i < blockData.length; i++) {
+                const b = blockData[i];
+                let h = BASE_LEVEL;
+                
+                if (!b.isCenter) {
+                    // 波浪算法：正弦波叠加 + 距离衰减 (让远处的浪看起来更平缓，防止闪烁)
+                    const wave1 = Math.sin(time * WAVE_SPEED + b.phase);
+                    const wave2 = Math.sin(time * WAVE_SPEED * 0.7 + b.z * 0.1);
+                    h += (wave1 + wave2) * 0.5 * WAVE_AMPLITUDE;
+                    h = Math.max(0.2, h); // 最小厚度
+                } else {
+                    h = BASE_LEVEL + Math.sin(time * 0.5) * 0.1;
+                }
+
+                dummy.position.set(b.x, 0, b.z);
+                dummy.scale.set(CELL_SIZE * 0.92, h, CELL_SIZE * 0.92);
+                dummy.updateMatrix();
+                oceanMesh.setMatrixAt(b.index, dummy.matrix);
+            }
+            oceanMesh.instanceMatrix.needsUpdate = true;
+
+            // 2. 粒子上升动画
+            const pPositions = particles.geometry.attributes.position.array;
+            for(let i=0; i<particleCount; i++) {
+                // Y轴上升
+                pPositions[i*3+1] += pSpeed[i];
+                // X/Z轴微弱摇摆
+                pPositions[i*3] += Math.sin(time + pOffset[i]) * 0.02;
+                
+                // 循环重置
+                if(pPositions[i*3+1] > 40) {
+                    pPositions[i*3+1] = 0;
+                }
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+
+            // 3. 环境动画
+            sunGroup.rotation.z = time * 0.02; // 远处光环旋转
+            hudRing1.rotation.z = time * 0.1;
+            hudRing2.rotation.z = -time * 0.05;
+            
+            // 平台轻微浮动
+            platformGroup.position.y = BASE_LEVEL + 2 + Math.sin(time * 0.6) * 0.2;
+            platformGroup.rotation.y = Math.sin(time * 0.05) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+
+        renderer.setAnimationLoop(render);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
